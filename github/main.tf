@@ -9,7 +9,7 @@ module "dops_module_test" {
    visibility                    = "private"
    auto_init                     = false
    product_code                  = "dops"
-   owner                         = "master@gmail.com"
+   owner                         = "master@mcd.com"
    product_domain_map = local.product_domain_map 
    product_domain                = "platform"
    ruleset_protect_main_branch   = true
