@@ -7,7 +7,7 @@ module "dops_module_test" {
    allow_update_branch           = true
    delete_branch_on_merge        = true
    visibility                    = "private"
-   auto_init                     = false
+   auto_init                     = true
    product_code                  = "dops"
    owner                         = "master@mcd.com"
    product_domain_map = local.product_domain_map 
