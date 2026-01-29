@@ -1,5 +1,5 @@
 module "dops_module_test" {
-  source = "git::https://github.com/pacific-devops/terraform-module.git//modules/github?ref=main"
+  source = "git::https://github.com/pacific-devops/terraform-module.git//github?ref=main"
    name                          = "dops-module-test"
    description                   = "This repository is collection of reusable workflows."
    allow_merge_commit            = false
