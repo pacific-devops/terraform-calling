@@ -1,0 +1,103 @@
+name: GitHub Terraform
+
+on:
+  # workflow_dispatch:
+  push:
+    branches: [feature/github-module]
+  # pull_request:
+# push:
+#     branches:
+#       - main
+#     paths:
+#       - sonarqube/**
+#      
+
+#   pull_request:
+#     paths:
+#       - sonarqube/**    
+
+permissions:
+  issues:        write
+  checks:        write
+  actions:       read
+  contents:      read
+  id-token:      write
+  pull-requests: write
+
+jobs:
+  pr-plan: 
+    name: Terraform GitHub Setup
+    runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup App Token
+        uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ vars.GDAP_GH_APP_ID }}
+          private-key: ${{ secrets.GDAP_GH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Configure Git for internal modules
+        env:
+          mcfo_token: ${{ steps.app-token.outputs.token }}
+        run: |
+         git config --global url."https://x-access-token:${mcfo_token}@github.com/".insteadOf "https://github.com/"
+          
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      # - uses: google-github-actions/auth@v2
+      #   with:
+      #     service_account: var.svc
+      #     workload_identity_provider: var.wip
+      - name: Verify app can see repo
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          curl -i \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/global-data-analytics/dops-actions 
+      - name: Terraform Init
+        env:
+          GITHUB_APP_INSTALLATION_ID: ${{ steps.app-token.outputs.installation-id }}
+          GITHUB_APP_ID: ${{ vars.GDAP_GH_APP_ID }}
+          GITHUB_APP_PEM_FILE: ${{ secrets.GDAP_GH_APP_PRIVATE_KEY }}
+        run: terraform init -input=false -upgrade
+        working-directory: github
+        
+      - name: Terraform Validate
+        env:
+          GITHUB_APP_INSTALLATION_ID: ${{ steps.app-token.outputs.installation-id }}
+          GITHUB_APP_ID: ${{ vars.GDAP_GH_APP_ID }}
+          GITHUB_APP_PEM_FILE: ${{ secrets.GDAP_GH_APP_PRIVATE_KEY }}
+        run: terraform validate 
+        working-directory: github         
+                                    
+      - name: Terraform Plan
+        working-directory: github
+        env:
+          GITHUB_APP_INSTALLATION_ID: ${{ steps.app-token.outputs.installation-id }}
+          GITHUB_APP_ID: ${{ vars.GDAP_GH_APP_ID }}
+          GITHUB_APP_PEM_FILE: ${{ secrets.GDAP_GH_APP_PRIVATE_KEY }}
+        run: terraform plan -input=false -out pr-plan.tfplan
+
+
+      - uses: mcd-actions/terraform-plan-comment@v1
+        with:
+          token: ${{ github.token }}
+          header: "Plan: GitHub"
+          planfile: pr-plan.tfplan
+          working-directory: github
+          dd-api-key: ${{ secrets.MCD_ACTIONS_DD_API_KEY }}
+
+      - run: terraform apply -input=false -auto-approve pr-plan.tfplan
+        working-directory: github
+        env:
+          GITHUB_APP_INSTALLATION_ID: ${{ steps.app-token.outputs.installation-id }}
+          GITHUB_APP_ID: ${{ vars.GDAP_GH_APP_ID }}
+          GITHUB_APP_PEM_FILE: ${{ secrets.GDAP_GH_APP_PRIVATE_KEY }}
